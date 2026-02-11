@@ -70,6 +70,11 @@ on:
         description: 'Include build logs in release assets'
         required: false
         default: 'true'
+      pub_release:
+        description: 'Publish to GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
 #  schedule:
 #    - cron: 0 16 * * *
 
@@ -613,7 +618,7 @@ jobs:
 
     - name: 发布固件至Release
       uses: softprops/action-gh-release@v2.1.0
-      if: steps.tag.outputs.status == 'success' && !cancelled()
+      if: steps.tag.outputs.status == 'success' && !cancelled() && env.UPLOAD_RELEASE == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:

@@ -26,6 +26,11 @@ on:
         description: 'Include build logs in release assets'
         required: false
         default: 'true'
+      pub_release:
+        description: 'Publish to GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   TZ: Asia/Shanghai
@@ -269,6 +274,7 @@ jobs:
           echo "RELEASE_NAME=FIT-dhcpd-${{ needs.generate_list.outputs.timestamp }}" >> "$GITHUB_ENV"
 
       - name: Publish firmware to Release
+        if: github.event.inputs.pub_release == 'true' && !cancelled()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
