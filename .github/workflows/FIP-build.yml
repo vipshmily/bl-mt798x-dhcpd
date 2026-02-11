@@ -542,10 +542,12 @@ jobs:
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         touch release.txt
-        echo "- 适配机型：${{ env.UPLOAD_TAG_NAME }}" >> release.txt
-        echo "- 使用源码：${{ env.REPO_URL }}" >> release.txt
-        echo "- 使用分支：${{ env.REPO_BRANCH }}" >> release.txt
-        echo "- 使用版本：${{ github.event.inputs.FIP_VERSION }}" >> release.txt
+
+        echo "- 提交来源: ${{ github.sha }}" >> release.txt
+        echo "- 适配机型: ${{ env.UPLOAD_TAG_NAME }}" >> release.txt
+        echo "- 使用源码: ${{ env.REPO_URL }}" >> release.txt
+        echo "- 使用分支: ${{ env.REPO_BRANCH }}" >> release.txt
+        echo "- 使用版本: ${{ github.event.inputs.FIP_VERSION }}" >> release.txt
         if [ "${{ github.event.inputs.MULTI_LAYOUT }}" = "true" ]; then
           echo "- 已启用 MULTI_LAYOUT=1" >> release.txt
         else
@@ -564,7 +566,7 @@ jobs:
         CUSTOM_IP="${{ github.event.inputs.CUSTOM_IP }}"
         if [ "$CUSTOM_IP" != "false" ] && [ -n "$CUSTOM_IP" ]; then
           if echo "$CUSTOM_IP"; then
-            echo "- 已应用特殊网段：$CUSTOM_IP" >> release.txt
+            echo "- 已应用特殊网段: $CUSTOM_IP" >> release.txt
           else
             echo "- 特殊网段输入无效（CUSTOM_IP=$CUSTOM_IP），已保持默认网段192.168.1.1" >> release.txt
           fi
@@ -574,7 +576,7 @@ jobs:
         if [ "${{ github.event.inputs.MODEL }}" = "all" ]; then
           echo "- 已输出各版本机型列表文件（MODEL=all）" >> release.txt
         fi
-        echo "- 编译时间：${{ env.FILE_DATE }}" >> release.txt
+        echo "- 编译时间: ${{ env.FILE_DATE }}" >> release.txt
         echo "release_tag=${{ env.FILE_DATE }}-${{ env.UPLOAD_TAG_NAME }}" >> $GITHUB_OUTPUT
         echo "status=success" >> $GITHUB_OUTPUT
 

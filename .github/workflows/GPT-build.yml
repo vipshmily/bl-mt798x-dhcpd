@@ -135,14 +135,16 @@ jobs:
         run: |
           set -euo pipefail
           touch release.txt
-          echo "- 使用源码：${{ env.REPO_URL }}" >> release.txt
-          echo "- 使用分支：${{ env.REPO_BRANCH }}" >> release.txt
+
+          echo "- 提交来源: ${{ github.sha }}" >> release.txt
+          echo "- 使用源码: ${{ env.REPO_URL }}" >> release.txt
+          echo "- 使用分支: ${{ env.REPO_BRANCH }}" >> release.txt
           if [ "${{ github.event.inputs.GPT_TEMPLATE }}" = "true" ]; then
-            echo "- 已启用：编译模板分区表" >> release.txt
+            echo "- 已启用: 编译模板分区表" >> release.txt
           else
-            echo "- 未启用：编译模板分区表" >> release.txt
+            echo "- 未启用: 编译模板分区表" >> release.txt
           fi
-          echo "- 编译时间：${{ env.FILE_DATE }}" >> release.txt
+          echo "- 编译时间: ${{ env.FILE_DATE }}" >> release.txt
 
           echo "release_tag=${{ env.FILE_DATE }}-gpt-partition-table" >> $GITHUB_OUTPUT
           echo "status=success" >> $GITHUB_OUTPUT

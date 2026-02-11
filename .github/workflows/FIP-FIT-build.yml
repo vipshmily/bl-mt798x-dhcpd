@@ -257,12 +257,13 @@ jobs:
           set -euo pipefail
           touch release.txt
 
-          echo "- 构建目标（TARGET）：${{ github.event.inputs.TARGET }}" >> release.txt
+          echo "- 提交来源: ${{ github.sha }}" >> release.txt
+          echo "- 构建目标（TARGET）: ${{ github.event.inputs.TARGET }}" >> release.txt
 
           CUSTOM_IP="${{ github.event.inputs.CUSTOM_IP }}"
           if [ "$CUSTOM_IP" != "false" ] && [ -n "$CUSTOM_IP" ]; then
             if echo "$CUSTOM_IP"; then
-              echo "- 已应用特殊网段：$CUSTOM_IP" >> release.txt
+              echo "- 已应用特殊网段: $CUSTOM_IP" >> release.txt
             else
               echo "- 特殊网段输入无效（CUSTOM_IP=$CUSTOM_IP），已保持默认网段192.168.1.1" >> release.txt
             fi
