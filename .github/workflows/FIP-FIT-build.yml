@@ -17,16 +17,16 @@ on:
         required: true
         default: 'all'
         type: string
-      OC_BL2:
-        description: 'Build 1.6GHz BL2 by patch'
-        required: false
-        default: false
-        type: boolean
       CUSTOM_IP:
         description: 'Custom default IP for DHCPD (e.g. 192.168.31.1)'
         required: false
         default: 'false'
         type: string
+      pub_release:
+        description: 'Publish to GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   TZ: Asia/Shanghai
@@ -126,16 +126,11 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo -E apt-get update
-          sudo -E apt-get install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev device-tree-compiler
+          sudo -E apt-get install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev device-tree-compiler tar
           sudo timedatectl set-timezone "$TZ"
 
       - name: Checkout source tree
         uses: actions/checkout@v4
-
-      - name: Apply overclocking BL2 patch (1.6GHz)
-        if: ${{ inputs.OC_BL2 }}
-        run: |
-          git apply --verbose "modify-patch/0001-overclocking-mt7981-to-1.6GHz-by-modify-atf.patch"
 
       - name: Apply a special network segment to U-Boot DHCPD
         if: github.event.inputs.CUSTOM_IP != 'false' && !cancelled()
@@ -195,7 +190,7 @@ jobs:
           BOARD="${CONFIG#*_}"
           export BOARD="${BOARD%_*}"
           mkdir -p "output"
-          SOC="$SOC" BOARD="$BOARD" VERSION=2025 MAINLINE=1 ./build.sh 2>&1 | tee "output/build.log"
+          SOC="$SOC" BOARD="$BOARD" VERSION=2025 MAINLINE=1 ./build.sh 2>&1 | tee "output/build-${SOC}-${BOARD}-2025.log"
           echo "ARTIFACT_NAME=$SOC-$BOARD" >> "$GITHUB_ENV"
 
       - name: Organize and rename outputs
@@ -203,13 +198,10 @@ jobs:
           set -euo pipefail
           SUFFIX="-FIT-${TIMESTAMP}"
 
-          if [ "${{ env.OC_BL2 }}" = "1" ]; then
-            for file in output/*; do
-              if [[ "$file" == *"mt7981"* && "$file" == *"bl2.bin"* ]]; then
-                mv "$file" "${file%.bin}_oc1.6GHz.bin"
-              fi
-            done
-          fi
+          export CONFIG="${{ matrix.list }}"
+          export SOC="${CONFIG%%_*}"
+          BOARD="${CONFIG#*_}"
+          export BOARD="${BOARD%_*}"
 
           shopt -s nullglob
           for f in output/*; do
@@ -224,20 +216,28 @@ jobs:
             fi
           done
 
+          logs=(output/build-*.log output/*-build-*.log)
+          if (( ${#logs[@]} )); then
+            tar -czf "output/build-logs_${TIMESTAMP}.tar.gz" "${logs[@]}"
+            rm -f "${logs[@]}"
+          fi
+
           # Re-generate sha256sums AFTER renaming; exclude sha256sums itself.
           (
             cd output
             find . -maxdepth 1 -type f ! -name 'sha256sums*' -print0 \
               | sort -z \
               | xargs -0 sha256sum \
-              > "sha256sums${SUFFIX}.txt"
+              > "sha256sums-${SOC}-${BOARD}${SUFFIX}.txt"
           )
 
       - name: Upload build outputs
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
-          path: output/*
+          path: |
+            output/*
+            !output/*bl2*
 
   release:
     name: Release firmware
@@ -271,17 +271,12 @@ jobs:
             echo "- 保持默认网段192.168.1.1" >> release.txt
           fi
 
-          if [ "${{ inputs.OC_BL2 }}" = "true" ]; then
-            echo "- 已应用1.6GHz BL2超频补丁" >> release.txt
-          else
-            echo "- 未应用1.6GHz BL2超频补丁" >> release.txt
-          fi
-
           echo "TIMESTAMP=${{ needs.generate_list.outputs.timestamp }}" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=FIT-dhcpd-${{ needs.generate_list.outputs.timestamp }}" >> "$GITHUB_ENV"
           echo "RELEASE_NAME=FIT-dhcpd-${{ needs.generate_list.outputs.timestamp }}" >> "$GITHUB_ENV"
 
       - name: Publish firmware to Release
+        if: github.event.inputs.pub_release == 'true' && !cancelled()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}

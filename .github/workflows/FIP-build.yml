@@ -48,6 +48,11 @@ on:
         required: false
         default: false
         type: boolean
+      DIS_FIXED_MTDPARTS:
+        description: 'Disable FIXED_MTDPARTS(See READEME)'
+        required: false
+        default: false
+        type: boolean
       CUSTOM_IP:
         description: 'Custom default IP for DHCPD (e.g. 192.168.31.1)'
         required: false
@@ -61,6 +66,11 @@ on:
         description: 'Free up disk space(build environment)'
         required: false
         default: 'false'
+      pub_release:
+        description: 'Publish to GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
 #  schedule:
 #    - cron: 0 16 * * *
 
@@ -93,6 +103,29 @@ jobs:
       contents: write
 
     steps:
+    - name: 配置检查
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # 互斥检查：DIS_FIXED_MTDPARTS 不能和 MULTI_LAYOUT 共存
+        if [ "${{ github.event.inputs.DIS_FIXED_MTDPARTS }}" = "true" ] && [ "${{ github.event.inputs.MULTI_LAYOUT }}" = "true" ]; then
+          echo "错误：DIS_FIXED_MTDPARTS 与 MULTI_LAYOUT 不能同时启用"
+          exit 1
+        fi
+
+        # 导出给后续步骤使用：默认不设置；启用时设置 FIXED_MTDPARTS=0
+        if [ "${{ github.event.inputs.DIS_FIXED_MTDPARTS }}" = "true" ]; then
+          echo "FIXED_MTDPARTS=0" >> "$GITHUB_ENV"
+          echo "已启用：FIXED_MTDPARTS=0"
+        else
+          echo "未启用：DIS_FIXED_MTDPARTS"
+        fi
+
+        if [ "${{ github.event.inputs.pub_release }}" = "false" ]; then
+          echo "UPLOAD_RELEASE=false" >> $GITHUB_ENV
+        fi
+
     - name: 检查项目分支
       uses: actions/checkout@master
 
@@ -109,7 +142,7 @@ jobs:
       run: |
         sudo -E apt-get -qq update
         sudo -E apt-get -qq install $(cat $GITHUB_WORKSPACE/depends/${{ matrix.os }})
-        sudo -E apt-get -qq install rename
+        sudo -E apt-get -qq install rename tar
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
@@ -252,6 +285,13 @@ jobs:
           list_file="model_lists/model_list_${version}.txt"
           echo "$models" | sort -u > "$list_file"
           echo "已生成机型列表：$list_file"
+        done
+
+        echo "生成的机型列表文件："
+        ls -l model_lists/
+        for f in model_lists/model_list_*.txt; do
+          echo "列表内容 - $f:"
+          cat "$f" || echo "(empty)"
         done
 
         echo "MODEL_LIST_DIR=$PWD/model_lists" >> $GITHUB_ENV
@@ -447,6 +487,7 @@ jobs:
               SOC="$soc" BOARD="$model_name" VERSION=${version} ./build.sh 2>&1 | tee "output/build-${soc}-${model_name}-${version}.log"
               build_rc=${PIPESTATUS[0]}
             fi
+
             if [ "$build_rc" -ne 0 ]; then
               echo "编译失败：soc=$soc model=$model_name version=$version (rc=$build_rc)，继续下一个"
             fi
@@ -522,10 +563,13 @@ jobs:
         if [ -d "model_lists" ]; then
           cp -r model_lists/* upload/ || true
         fi
-        # 如果存在编译日志（output/build-*.log），确保被包含
-        if ls output/build-*.log >/dev/null 2>&1; then
-          cp -f output/build-*.log upload/ || true
+
+        # 压缩所有日志成为一个词压缩包并删除原日志文件
+        if ls upload/build-*.log >/dev/null 2>&1; then
+          tar -czf upload/build-logs_${TIMESTAMP}.tar.gz upload/build-*.log
+          rm -f upload/build-*.log
         fi
+
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
@@ -582,7 +626,7 @@ jobs:
 
     - name: 发布固件至Release
       uses: softprops/action-gh-release@v2.1.0
-      if: steps.tag.outputs.status == 'success' && !cancelled()
+      if: steps.tag.outputs.status == 'success' && !cancelled() && env.UPLOAD_RELEASE == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:

@@ -29,6 +29,7 @@ You can configure the features you need.
   - MTK_DHCPD_POOL_SIZE default 101
 - Failsafe Web UI style:
   - [x] WEBUI_FAILSAFE_UI_NEW
+    - [x] WEBUI_FAILSAFE_I18N
   - [ ] WEBUI_FAILSAFE_UI_OLD
 - [x] WEBUI_FAILSAFE_ADVANCED - Enable advanced features
   - [x] WEBUI_FAILSAFE_FACTORY - Enable factory (RF) update
@@ -55,7 +56,11 @@ SOC=mt7981 BOARD=cmcc_a10 VERSION=2025 MULTI_LAYOUT=1 ./build.sh
 
 - SOC=mt7981/mt7986
 - VERSION=2022/2023/2024/2025
-- MULTI_LAYOUT=1 (Optional, only for multi-layout devices, e.g. xiaomi-wr30u, redmi-ax6000)
+- MULTI_LAYOUT (default: 0. Optional, only for multi-layout devices, e.g. xiaomi-wr30u, redmi-ax6000)
+- FIXED_MTDPARTS (default: 1. Optional, if set to 0, for nand device, the mtdparts will be editiable, but it may cause some issues if you don't know what you are doing)
+
+> CAN'T ENABLE MULTI_LAYOUT=1 and FIXED_MTDPARTS=0 at the same time
+
 - Version differences:
 
 | Version | ATF | UBOOT |

@@ -28,6 +28,11 @@ on:
         required: false
         default: false
         type: boolean
+      pub_release:
+        description: 'Publish to GitHub Release'
+        required: false
+        default: 'true'
+        type: boolean
 
 env:
   REPO_URL: ${{ github.event.inputs.REPO_URL }}
@@ -56,6 +61,10 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
           sudo mkdir -p /workdir
           sudo chown $USER:$GROUPS /workdir
+
+          if [ "${{ github.event.inputs.pub_release }}" = "false" ]; then
+            echo "UPLOAD_RELEASE=false" >> $GITHUB_ENV
+          fi
 
       - name: 下载源码
         working-directory: /workdir
@@ -151,7 +160,7 @@ jobs:
 
       - name: 发布至Release
         uses: softprops/action-gh-release@v2.1.0
-        if: steps.tag.outputs.status == 'success' && !cancelled()
+        if: steps.tag.outputs.status == 'success' && !cancelled() && env.UPLOAD_RELEASE == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
