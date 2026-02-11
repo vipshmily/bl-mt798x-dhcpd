@@ -50,7 +50,7 @@ sudo apt install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev dev
 ```bash
 chmod +x build.sh
 SOC=mt7981 BOARD=sn_r1 VERSION=2025 ./build.sh
-SOC=mt7981 BOARD=cmcc_a10 VERSION=2022 MULTI_LAYOUT=1 ./build.sh
+SOC=mt7981 BOARD=cmcc_a10 VERSION=2025 MULTI_LAYOUT=1 ./build.sh
 ```
 
 - SOC=mt7981/mt7986
@@ -72,7 +72,7 @@ Generated files will be in the `output`
 > install denpendencies
 
 ```bash
-sudo apt-get install python2-dev swig
+sudo apt-get install python2 python2-dev
 ```
 
 > run
@@ -119,13 +119,17 @@ Then it will display the GPT partition info of all GPT bin files in `mt798x_gpt_
 
 There are two ways to build:
 
-```bash
-SOC=mt7981 BOARD=your_board VERSION=2025 MAINLINE=1 ./build.sh
-```
+- Local Build
+
+  ```bash
+  SOC=mt7981 BOARD=your_board VERSION=2025 MAINLINE=1 ./build.sh
+  ```
+
+- Use Action to build
 
 HOW to flash:
 
-1. Use failsafe WEB UI to backup **all your flash and partitions**, is very **important**!
+1. Use failsafe WEB UI to backup*** **all your flash and partitions**, is very **important**!
 
 2. Update BL2 in the WEB UI to flash the preloader provided by OpenWrt/ImmortalWrt ubootmod firmware.
 
@@ -133,13 +137,28 @@ HOW to flash:
 
 4. Use Flash Editor in the WEB UI to erase the UBI partition
 
-5. Try upgrade in firmware upgrade page with the OpenWrt/ImmortalWrt ubootmod firmware*, if not work, try next step.
+5. Try upgrade in firmware upgrade page with the OpenWrt/ImmortalWrt ubootmod firmware* **, if not work, try next step.
 
 6. Use failsafe WEB UI Initramfs to boot the OpenWrt/ImmortalWrt ubootmod Initramfs image
 
 7. If the device can boot into OpenWrt/ImmortalWrt successfully, then you can try upgrade in firmware upgrade page with the OpenWrt/ImmortalWrt ubootmod firmware again.
 
-> *: The OpenWrt/ImmortalWrt ubootmod firmware is a special firmware with FIT support, in this firmware, devicetree is loaded from the FIT image(bootargs = "root=/dev/fit0 rootwait";), and loaded from ubi_rootdisk. You'd better use a version after OpenWrt/ImmortalWrt 24.10.
+> *: If your device is a MMC device, you need upgrade GPT table which has production partition<br>
+> **: The OpenWrt/ImmortalWrt ubootmod firmware is a special firmware with FIT support, in this firmware, devicetree is loaded from the FIT image(bootargs = "root=/dev/fit0 rootwait"), and loaded from ubi_rootdisk. You'd better use a version after OpenWrt/ImmortalWrt 24.10.
+
+---
+
+## The best practices
+
+1. Use TTL tools to connect to the serial port, and use [MTK UARTBOOT](https://github.com/981213/mtk_uartboot/releases) to ramboot
+
+2. In Web UI, backup all your flash and partitions***, is very important!
+
+3. Update U-Boot in the WEB UI and upgrade firmware
+
+4. restore backup if something goes wrong
+
+> ***: If your device is a MMC device, back up all flash is not feasible. It depends on the size of the firmware, which is usually 200MB to 300MB.
 
 ---
 
