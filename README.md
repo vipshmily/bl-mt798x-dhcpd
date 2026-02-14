@@ -50,14 +50,15 @@ sudo apt install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev dev
 
 ```bash
 chmod +x build.sh
-SOC=mt7981 BOARD=sn_r1 VERSION=2025 ./build.sh
-SOC=mt7981 BOARD=cmcc_a10 VERSION=2025 MULTI_LAYOUT=1 ./build.sh
+BOARD=sn_r1 VERSION=2025 ./build.sh
+BOARD=cmcc_a10 VERSION=2025 MULTI_LAYOUT=1 ./build.sh
 ```
 
-- SOC=mt7981/mt7986
-- VERSION=2022/2023/2024/2025
+- SOC=mt7981/mt7986 (auto detected. Optional)
+- VERSION=2022/2023/2024/2025 (default: 2025. Optional)
 - MULTI_LAYOUT (default: 0. Optional, only for multi-layout devices, e.g. xiaomi-wr30u, redmi-ax6000)
 - FIXED_MTDPARTS (default: 1. Optional, if set to 0, for nand device, the mtdparts will be editiable, but it may cause some issues if you don't know what you are doing)
+- VARIANT=default/ubootmod/nonmbm (default: default. Optional, for different firmware variants, e.g. OpenWrt/ImmortalWrt stock firmware, OpenWrt/ImmortalWrt U-Boot layout firmware, nmbm disabled firmware, etc.)
 
 > CAN'T ENABLE MULTI_LAYOUT=1 and FIXED_MTDPARTS=0 at the same time
 
@@ -127,7 +128,7 @@ There are two ways to build:
 - Local Build
 
   ```bash
-  SOC=mt7981 BOARD=your_board VERSION=2025 MAINLINE=1 ./build.sh
+  BOARD=your_board VERSION=2025 VARIANT=ubootmod ./build.sh
   ```
 
 - Use Action to build
@@ -164,6 +165,35 @@ HOW to flash:
 4. restore backup if something goes wrong
 
 > ***: If your device is a MMC device, back up all flash is not feasible. It depends on the size of the firmware, which is usually 200MB to 300MB.
+
+### Change failsafe WEB UI start key
+
+The following priorities are now supported:
+
+- `glbtn_key=all` or `glbtn_gpio=all`
+  → Scan all UCLASS_BUTTONs; any button press will trigger the GPIO.
+- `glbtn_gpio=<gpio>`
+  → Directly read the GPIO.
+- `glbtn_key=<label>`
+  → Still search by label.
+
+e.g.
+
+- Specify only GPIO:
+  `setenv glbtn_gpio 0`
+- With the `gpio:` prefix:
+  `setenv glbtn_gpio gpio:0`
+  > 0、gpio 0、pio 0、gpio:0、pio0.
+- Flip the signal:
+  `setenv glbtn_gpio !0`
+  > !gpio 0、!pio 0、!gpio:0、!pio0.
+- Scan gpio-keys:
+  `setenv glbtn_key all`
+  > wps、reset、mesh、all...
+
+### Disable auto-reboot after upgrade
+
+Set failsafe_auto_reboot environment variable to 1/true/yes/on to enable auto reboot after upgrade(New WEB UI).
 
 ---
 
