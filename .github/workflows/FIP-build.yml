@@ -19,7 +19,7 @@ on:
         default: 'cmcc_a10'
         type: string
       FIP_VERSION: 
-        description: 'FIP versions (comma-separated, e.g. 2022,2023,2024,2025/all)'
+        description: 'FIP versions (comma-separated, e.g. 2022,2023,2024,2025,2026/all)'
         required: true
         default: '2025'
         type: string
@@ -95,6 +95,8 @@ env:
   atf24: atf-20240117-bacca82a8
   uboot25: uboot-mtk-20250711
   atf25: atf-20250711
+  uboot26: uboot-mtk-20260123
+  atf26: atf-20260123
 
 jobs:
   build:
@@ -145,9 +147,6 @@ jobs:
           echo "UPLOAD_RELEASE=false" >> $GITHUB_ENV
         fi
 
-    - name: 检查项目分支
-      uses: actions/checkout@master
-
     - name: 清理磁盘空间(local1)
       if: github.event.inputs.save_disk == 'true' && !cancelled()
       env:
@@ -155,12 +154,21 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
+    - name: 下载源码
+      run: |
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        cd /workdir
+        df -hT $PWD
+        git clone $REPO_URL -b $REPO_BRANCH bl-mt798x-dhcpd
+        ln -sf /workdir/bl-mt798x-dhcpd $GITHUB_WORKSPACE/bl-mt798x-dhcpd
+
     - name: 初始化编译环境
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install $(cat $GITHUB_WORKSPACE/depends/${{ matrix.os }})
+        sudo -E apt-get -qq install $(cat $GITHUB_WORKSPACE/bl-mt798x-dhcpd/depends/${{ matrix.os }})
         sudo -E apt-get -qq install rename tar
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
@@ -189,13 +197,6 @@ jobs:
         haskell: false
         large-packages: false
         swap-storage: false
-
-    - name: 下载源码
-      working-directory: /workdir
-      run: |
-        df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH bl-mt798x-dhcpd
-        ln -sf /workdir/bl-mt798x-dhcpd $GITHUB_WORKSPACE/bl-mt798x-dhcpd
 
     - name: SSH链接管理
       uses: P3TERX/ssh2actions@v1.0.0
@@ -242,6 +243,7 @@ jobs:
             2023) echo "${{ env.atf23 }}" "${{ env.uboot23 }}" ;;
             2024) echo "${{ env.atf24 }}" "${{ env.uboot23 }}" ;;
             2025) echo "${{ env.atf25 }}" "${{ env.uboot25 }}" ;;
+            2026) echo "${{ env.atf26 }}" "${{ env.uboot26 }}" ;;
             *) echo "" "" ;;
           esac
         }

@@ -7,15 +7,30 @@
 # This file is part of the project bl-mt798x-dhcpd
 # You may not use, copy, modify or distribute this file except in compliance with the license agreement.
 #
-name: FIP-FIT-2025 Build
+name: FIP-FIT Build
 
 on:
   workflow_dispatch:
     inputs:
+      REPO_URL:
+        description: 'Source repository'
+        required: true
+        default: 'https://github.com/Yuzhii0718/bl-mt798x-dhcpd'
+        type: string
+      REPO_BRANCH:
+        description: "Repository branch"
+        required: true
+        default: 'auto'
+        type: string
       TARGET:
         description: 'Build target (format: soc,board). Default: all. e.g. mt7981,cmcc_a10'
         required: true
         default: 'all'
+        type: string
+      VERSION:
+        description: 'Version string to embed in the build (e.g. 2025). Default: 2025'
+        required: false
+        default: '2025'
         type: string
       CUSTOM_IP:
         description: 'Custom default IP for DHCPD (e.g. 192.168.31.1)'
@@ -30,6 +45,12 @@ on:
 
 env:
   TZ: Asia/Shanghai
+  REPO_URL: ${{ github.event.inputs.REPO_URL }}
+  REPO_BRANCH: ${{ github.event.inputs.REPO_BRANCH }}
+  ATF25: atf-20250711
+  UBOOT25: uboot-mtk-20250711
+  ATF26: atf-20260123
+  UBOOT26: uboot-mtk-20260123
 
 permissions:
   contents: write
@@ -43,10 +64,34 @@ jobs:
       timestamp: ${{ steps.ts.outputs.timestamp }}
 
     steps:
-      - name: Checkout source tree
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: '0'
+      - name: Prepare source trees
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ github.event.inputs.VERSION }}"
+          REPO_URL_IN="${{ github.event.inputs.REPO_URL }}"
+          REPO_BRANCH_IN="${{ github.event.inputs.REPO_BRANCH }}"
+
+          if [ -z "$REPO_URL_IN" ]; then
+            echo "REPO_URL is empty" >&2
+            exit 1
+          fi
+
+          if [ -n "$REPO_BRANCH_IN" ] && [ "$REPO_BRANCH_IN" != "auto" ]; then
+            REPO_REF="$REPO_BRANCH_IN"
+          else
+            case "$VERSION" in
+              2025) REPO_REF="master" ;;
+              2026) REPO_REF="mtksoc-20260123" ;;
+              *)
+                echo "Unsupported VERSION: '$VERSION'. Supported: 2025, 2026" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Using source: $REPO_URL_IN (ref: $REPO_REF)"
+          git clone --depth 1 --branch "$REPO_REF" "$REPO_URL_IN" bl-mt798x-dhcpd
 
       - name: Generate timestamp
         id: ts
@@ -56,23 +101,41 @@ jobs:
       - name: Generate build list
         id: list
         run: |
+          cd bl-mt798x-dhcpd
           # Optional: build only one target when inputs.TARGET is provided as soc,board
           TARGET_RAW="${{ github.event.inputs.TARGET }}"
           TARGET_RAW="${TARGET_RAW:-all}"
           # Trim all whitespace so both "mt7981,cmcc_a10" and "mt7981, cmcc_a10" work.
           TARGET="$(echo "$TARGET_RAW" | tr -d '[:space:]')"
 
-          ATF_DIR="atf-20250711/configs"
-          UBOOT_DIR="uboot-mtk-20250711/configs-fit"
+          # different VERSION to use different branches of ATF and U-Boot
+          VERSION="${{ github.event.inputs.VERSION }}"
+          case "$VERSION" in
+            2025)
+              ATF_DIR="atf-20250711"
+              UBOOT_DIR="uboot-mtk-20250711"
+              ;;
+            2026)
+              ATF_DIR="atf-20260123"
+              UBOOT_DIR="uboot-mtk-20260123"
+              ;;
+            *)
+              echo "Unsupported VERSION: '$VERSION'. Supported: 2025, 2026" >&2
+              exit 1
+              ;;
+          esac
+
+          ATF_CFGS="$ATF_DIR/configs"
+          UBOOT_CFGS="$UBOOT_DIR/configs-fit"
 
           # Build paired defconfig list: must exist in BOTH trees.
           CONFIG_LIST="$(
-            if [ -d "$ATF_DIR" ] && [ -d "$UBOOT_DIR" ]; then
+            if [ -d "$ATF_CFGS" ] && [ -d "$UBOOT_CFGS" ]; then
               # Find all *_defconfig in ATF, keep only those also present in U-Boot.
-              find "$ATF_DIR" -maxdepth 1 -type f -name '*_defconfig' -printf '%f\n' 2>/dev/null \
+              find "$ATF_CFGS" -maxdepth 1 -type f -name '*_defconfig' -printf '%f\n' 2>/dev/null \
                 | while IFS= read -r def; do
                     [ -z "$def" ] && continue
-                    [ -f "$UBOOT_DIR/$def" ] && echo "$def"
+                    [ -f "$UBOOT_CFGS/$def" ] && echo "$def"
                   done \
                 | sort -u
             fi
@@ -89,9 +152,9 @@ jobs:
             DEFCONFIG="${SOC}_${BOARD}_defconfig"
 
             # Must exist as a valid pair
-            if [ ! -f "$ATF_DIR/$DEFCONFIG" ] || [ ! -f "$UBOOT_DIR/$DEFCONFIG" ]; then
+            if [ ! -f "$ATF_CFGS/$DEFCONFIG" ] || [ ! -f "$UBOOT_CFGS/$DEFCONFIG" ]; then
               echo "TARGET defconfig pair not found:" >&2
-              echo "  missing: $ATF_DIR/$DEFCONFIG or $UBOOT_DIR/$DEFCONFIG" >&2
+              echo "  missing: $ATF_CFGS/$DEFCONFIG or $UBOOT_CFGS/$DEFCONFIG" >&2
               echo "Available paired defconfigs:" >&2
               echo "$CONFIG_LIST" | sed 's/^/  - /' >&2
               exit 1
@@ -129,13 +192,41 @@ jobs:
           sudo -E apt-get install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev device-tree-compiler tar
           sudo timedatectl set-timezone "$TZ"
 
-      - name: Checkout source tree
-        uses: actions/checkout@v4
+      - name: Prepare source trees
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ github.event.inputs.VERSION }}"
+          REPO_URL_IN="${{ github.event.inputs.REPO_URL }}"
+          REPO_BRANCH_IN="${{ github.event.inputs.REPO_BRANCH }}"
+
+          if [ -z "$REPO_URL_IN" ]; then
+            echo "REPO_URL is empty" >&2
+            exit 1
+          fi
+
+          if [ -n "$REPO_BRANCH_IN" ] && [ "$REPO_BRANCH_IN" != "auto" ]; then
+            REPO_REF="$REPO_BRANCH_IN"
+          else
+            case "$VERSION" in
+              2025) REPO_REF="master" ;;
+              2026) REPO_REF="mtksoc-20260123" ;;
+              *)
+                echo "Unsupported VERSION: '$VERSION'. Supported: 2025, 2026" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "Using source: $REPO_URL_IN (ref: $REPO_REF)"
+          git clone --depth 1 --branch "$REPO_REF" "$REPO_URL_IN" bl-mt798x-dhcpd
 
       - name: Apply a special network segment to U-Boot DHCPD
         if: github.event.inputs.CUSTOM_IP != 'false' && !cancelled()
         run: |
           set -euo pipefail
+
+          cd bl-mt798x-dhcpd
 
           CUSTOM_IP="${{ github.event.inputs.CUSTOM_IP }}"
           if [ "$CUSTOM_IP" = "false" ] || [ -z "$CUSTOM_IP" ]; then
@@ -186,16 +277,19 @@ jobs:
         env:
           CONFIG: ${{ matrix.list }}
         run: |
+          cd bl-mt798x-dhcpd
+          VERSION="${{ github.event.inputs.VERSION }}"
           export SOC="${CONFIG%%_*}"
           BOARD="${CONFIG#*_}"
           export BOARD="${BOARD%_*}"
           mkdir -p "output"
-          SOC="$SOC" BOARD="$BOARD" VERSION=2025 VARIANT=ubootmod ./build.sh 2>&1 | tee "output/build-${SOC}-${BOARD}-2025.log"
+          SOC="$SOC" BOARD="$BOARD" VERSION="$VERSION" VARIANT=ubootmod ./build.sh 2>&1 | tee "output/build-${SOC}-${BOARD}-${VERSION}.log"
           echo "ARTIFACT_NAME=$SOC-$BOARD" >> "$GITHUB_ENV"
 
       - name: Organize and rename outputs
         run: |
           set -euo pipefail
+          cd bl-mt798x-dhcpd
           SUFFIX="-FIT-${TIMESTAMP}"
 
           export CONFIG="${{ matrix.list }}"
@@ -236,8 +330,8 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: |
-            output/*
-            !output/*bl2*
+            bl-mt798x-dhcpd/output/*
+            !bl-mt798x-dhcpd/output/*bl2*
 
   release:
     name: Release firmware
