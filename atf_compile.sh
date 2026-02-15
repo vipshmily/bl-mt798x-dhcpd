@@ -2,8 +2,8 @@
 
 TOOLCHAIN=aarch64-linux-gnu-
 
-RAMBOOT_DIR="${RAMBOOT_DIR:-ramboot_cfg}"
-OUTPUT_DIR="${OUTPUT_DIR:-output_ramboot}"
+ATFCFG_DIR="${ATFCFG_DIR:-atf_cfg}"
+OUTPUT_DIR="${OUTPUT_DIR:-output_bl2}"
 
 VERSION=${VERSION:-2025}
 
@@ -13,13 +13,13 @@ if [ -z "$ATF_DIR" ]; then
     elif [ "$VERSION" = "2026" ]; then
         ATF_DIR=atf-20260123
     else
-        echo "Error: Unsupported VERSION. Please specify VERSION=2024/2025/2026 or set ATF_DIR."
+        echo "Error: Unsupported VERSION. Please specify VERSION=2025/2026 or set ATF_DIR."
         exit 1
     fi
 fi
 
-if [ ! -d "$RAMBOOT_DIR" ]; then
-    echo "Error: RAMBOOT_DIR '$RAMBOOT_DIR' not found."
+if [ ! -d "$ATFCFG_DIR" ]; then
+    echo "Error: ATFCFG_DIR '$ATFCFG_DIR' not found."
     exit 1
 fi
 
@@ -52,17 +52,18 @@ fi
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$ATF_DIR/build"
 
-CONFIG_LIST=$(ls "$RAMBOOT_DIR"/*.config 2>/dev/null)
+CONFIG_LIST=$(ls "$ATFCFG_DIR"/*.config 2>/dev/null)
 if [ -z "$CONFIG_LIST" ]; then
-    echo "Error: no .config files found in $RAMBOOT_DIR"
+    echo "Error: no .config files found in $ATFCFG_DIR"
     exit 1
 fi
 
 for cfg_file in $CONFIG_LIST; do
     cfg_name=$(basename "$cfg_file")
     cfg_base=${cfg_name%.config}
-    soc=$(echo "$cfg_base" | sed -e 's/^ramboot-//' -e 's/-.*$//')
-    echo "Building RAMBOOT: $cfg_name (soc=$soc)"
+    # soc=$(echo "$cfg_base" | sed -e 's/^atf-//' -e 's/-.*$//')
+    soc=$(echo "$cfg_base" | cut -d'-' -f2)
+    echo "Building BL2: $cfg_name (soc=$soc)"
     rm -rf "$ATF_DIR/build"
     mkdir -p "$ATF_DIR/build"
     cp -f "$cfg_file" "$ATF_DIR/build/.config"

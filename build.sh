@@ -1,9 +1,14 @@
 #!/bin/sh
 
+AUTHOR="Yuzhii"
+
 TOOLCHAIN=aarch64-linux-gnu-
 
+# Default selection
 VERSION=${VERSION:-2026}
-MULTI_LAYOUT=${MULTI_LAYOUT:-1}
+VARIANT=${VARIANT:-default}
+fixedparts=${FIXED_MTDPARTS:-1}
+multilayout=${MULTI_LAYOUT:-0}
 
 if [ "$VERSION" = "2022" ]; then
     UBOOT_DIR=uboot-mtk-20220606
@@ -25,70 +30,199 @@ else
     exit 1
 fi
 
-if [ -z "$SOC" ] || [ -z "$BOARD" ]; then
-    echo "Usage: SOC=[mt7981|mt7986] BOARD=<board name> VERSION=[2022|2023|2024|2025] $0"
-    echo "eg: SOC=mt7981 BOARD=360t7 VERSION=2022 $0"
-    echo "eg: SOC=mt7981 BOARD=wr30u VERSION=2023 $0"
-    echo "eg: SOC=mt7981 BOARD=cmcc_rax3000m-emmc VERSION=2024 $0"
-    echo "eg: SOC=mt7981 BOARD=philips_hy3000 VERSION=2022 $0"
-    echo "eg: SOC=mt7986 BOARD=redmi_ax6000 VERSION=2022 $0"
-    echo "eg: SOC=mt7986 BOARD=jdcloud_re-cp-03 VERSION=2025 $0"
-    exit 1
+if [ -z "$BOARD" ]; then
+	echo "Usage: BOARD=<board name> [SOC=mt7981|mt7986|mt7987|mt7988] VERSION=[2022|2023|2024|2025] VARIANT=[default|ubootmod|nonmbm] $0"
+	echo "eg: BOARD=cmcc_a10 $0"
+	echo "eg: BOARD=cmcc_a10 VARIANT=ubootmod $0"
+	echo "eg: BOARD=sn_r1 VERSION=2025 $0"
+	echo "eg: SOC=mt7981 BOARD=cmcc_a10 $0"
+	exit 1
 fi
 
-# Check if Python is installed on the system
+echo "Trying python3..."
 command -v python3
-[ "$?" != "0" ] && { echo "Error: Python is not installed on this system."; exit 0; }
+[ "$?" != "0" ] && { echo "Error: Python3 is not installed on this system."; exit 0; }
 
 echo "Trying cross compiler..."
 command -v "${TOOLCHAIN}gcc"
 [ "$?" != "0" ] && { echo "${TOOLCHAIN}gcc not found!"; exit 0; }
 export CROSS_COMPILE="$TOOLCHAIN"
 
+echo "======================================================================"
+
+# Config Dir
+CONFIGS_DIR_DEFAULT="configs"
+CONFIGS_DIR_FIT="configs-fit"
+CONFIGS_DIR_NONMBM="configs-nonmbm"
+
+detect_soc() {
+	matched=""
+	for dir in "$UBOOT_DIR/$CONFIGS_DIR_DEFAULT" "$UBOOT_DIR/$CONFIGS_DIR_FIT" "$UBOOT_DIR/$CONFIGS_DIR_NONMBM"; do
+		[ -d "$dir" ] || continue
+		for file in "$dir"/*_"$BOARD"_defconfig "$dir"/*_"$BOARD"_multi_layout_defconfig; do
+			[ -f "$file" ] || continue
+			base=$(basename "$file")
+			soc=${base%%_"$BOARD"_defconfig}
+			if [ "$base" = "$soc" ]; then
+				soc=${base%%_"$BOARD"_multi_layout_defconfig}
+			fi
+			matched="$matched $soc"
+		done
+	done
+
+	unique=""
+	for s in $matched; do
+		case " $unique " in
+			*" $s "*) ;;
+			*) unique="$unique $s" ;;
+		esac
+	done
+
+	set -- $unique
+	count=$#
+	if [ "$count" -eq 1 ]; then
+		echo "$1"
+		return 0
+	fi
+	if [ "$count" -gt 1 ]; then
+		echo "$unique"
+		return 2
+	fi
+	return 1
+}
+
+if [ -z "$SOC" ]; then
+	SOC_DETECTED=$(detect_soc)
+	status=$?
+	if [ "$status" -eq 0 ]; then
+		SOC="$SOC_DETECTED"
+		echo "Auto-detected SOC: $SOC"
+	elif [ "$status" -eq 2 ]; then
+		echo "Error: Multiple SOC matches for BOARD=$BOARD:$SOC_DETECTED"
+		echo "Please set SOC manually."
+		exit 1
+	else
+		echo "Error: Unable to auto-detect SOC for BOARD=$BOARD"
+		echo "Please set SOC manually."
+		exit 1
+	fi
+fi
+
 ATF_CFG_SOURCE="${SOC}_${BOARD}_defconfig"
 UBOOT_CFG_SOURCE="${SOC}_${BOARD}_defconfig"
+UBOOT_CFG_MULTILAYOUT_SOURCE="${SOC}_${BOARD}_multi_layout_defconfig"
 
 # Backup the configuration files in sources
 ATF_CFG="${ATF_CFG:-$ATF_CFG_SOURCE}"
 UBOOT_CFG="${UBOOT_CFG:-$UBOOT_CFG_SOURCE}"
+UBOOT_CFG_MULTILAYOUT="${UBOUBOOT_CFG_MULTILAYOUT:-$UBOOT_CFG_MULTILAYOUT_SOURCE}"
 
-if grep -Eq "CONFIG_FLASH_DEVICE_EMMC=y|_BOOT_DEVICE_EMMC=y" $ATF_DIR/configs/$ATF_CFG ; then
+# ATF Config Path
+ATF_CFG_PATH_DEFAULT="$ATF_DIR/$CONFIGS_DIR_DEFAULT/$ATF_CFG"
+# Currently ATF doesn't have nmbm disabled configs, so use the same one as default build
+# If you wanna use nmbm disabled firmware, flash the preloader by OpenWrt/ImmortalWrt to BL2
+
+# U-Boot Config Path
+UBOOT_CFG_PATH_DEFAULT="$UBOOT_DIR/$CONFIGS_DIR_DEFAULT/$UBOOT_CFG"
+UBOOT_CFG_PATH_MULTILAYOUT="$UBOOT_DIR/$CONFIGS_DIR_DEFAULT/$UBOOT_CFG_MULTILAYOUT"
+UBOOT_CFG_PATH_FIT="$UBOOT_DIR/$CONFIGS_DIR_FIT/$UBOOT_CFG"
+UBOOT_CFG_PATH_NONMBM="$UBOOT_DIR/$CONFIGS_DIR_NONMBM/$UBOOT_CFG"
+UBOOT_CFG_PATH_NONMBM_MULTILAYOUT="$UBOOT_DIR/$CONFIGS_DIR_NONMBM/$UBOOT_CFG_MULTILAYOUT"
+
+if [ "$VARIANT" = "default" ] || [ "$VARIANT" = "DEFAULT" ]; then
+	ATF_CFG_PATH=$ATF_CFG_PATH_DEFAULT
+	UBOOT_CFG_PATH=$UBOOT_CFG_PATH_DEFAULT
+	if [ "$multilayout" = "1" ]; then
+		UBOOT_CFG_PATH=$UBOOT_CFG_PATH_MULTILAYOUT
+	fi
+	if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_CFG_PATH" ]; then
+		echo "Warning: Multi layout config not found, will fallback to single-layout.(Y/n):"
+		if [ "$SLIENT" != "Y" ]; then
+			read answer
+		fi
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+			multilayout=0
+			UBOOT_CFG_PATH=$UBOOT_CFG_PATH_DEFAULT
+		else
+			echo "Canceled."
+		fi
+	fi
+elif [ "$VARIANT" = "ubootmod" ] || [ "$VARIANT" = "UBOOTMOD" ]; then
+	fixedparts=0
+	ATF_CFG_PATH=$ATF_CFG_PATH_DEFAULT
+	UBOOT_CFG_PATH=$UBOOT_CFG_PATH_FIT
+	if [ "$multilayout" = "1" ]; then
+		echo "Warning: No multi layout with ubootmod variant, will disabled it.(Y/n):"
+		if [ "$SLIENT" != "Y" ]; then
+			read answer
+		fi
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+			multilayout=0
+		else
+			echo "Canceled."
+		fi
+	fi
+elif [ "$VARIANT" = "nonmbm" ] || [ "$VARIANT" = "NONMBM" ]; then
+	ATF_CFG_PATH=$ATF_CFG_PATH_DEFAULT
+	UBOOT_CFG_PATH=$UBOOT_CFG_PATH_NONMBM
+	if [ "$multilayout" = "1" ]; then
+		UBOOT_CFG_PATH=$UBOOT_CFG_PATH_NONMBM_MULTILAYOUT
+	fi
+	if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_CFG_PATH" ]; then
+		echo "Warning: Multi layout config not found, fallback to single-layout.(Y/n):"
+		if [ "$SLIENT" != "Y" ]; then
+			read answer
+		fi
+		if [ "$answer" = "y" ] || [ "$answer" = "Y" ] || [ "$SLIENT" = "Y" ]; then
+			multilayout=0
+			UBOOT_CFG_PATH=$UBOOT_CFG_PATH_NONMBM
+		else
+			echo "Canceled."
+		fi
+	fi
+else
+    echo "Error: Unsupported VARIANT. Please specify VARIANT=default/multilayou/ubootmod/nonmbm."
+    exit 1
+fi
+
+if grep -Eq "CONFIG_FLASH_DEVICE_EMMC=y|_BOOT_DEVICE_EMMC=y" "$ATF_CFG_PATH" ; then
 	# No fixed-mtdparts or multilayout for EMMC
 	fixedparts=0
 	multilayout=0
-else
-	# Build fixed-mtdparts by default for NAND
-	fixedparts=${FIXED_MTDPARTS:-1}
-	multilayout=${MULTI_LAYOUT:-0}
-	if [ "$multilayout" = "1" ]; then
-		UBOOT_CFG="${SOC}_${BOARD}_multi_layout_defconfig"
-	fi
 fi
 
-if [ "$multilayout" = "1" ] && [ ! -f "$UBOOT_DIR/configs/$UBOOT_CFG" ]; then
-	echo "Warning: $UBOOT_DIR/configs/$UBOOT_CFG not found, fallback to single-layout."
-	multilayout=0
-	UBOOT_CFG="${SOC}_${BOARD}_defconfig"
+if [ "$fixedparts" = "0" ] && [ "$multilayout" = "1" ]; then
+	echo "Error: Multi layout is not compatible with fixed-mtdparts disabled build. Please disable multi layout or enable fixed-mtdparts."
+	exit 1
 fi
 
-for file in "$ATF_DIR/configs/$ATF_CFG" "$UBOOT_DIR/configs/$UBOOT_CFG"; do
+for file in "$ATF_CFG_PATH" "$UBOOT_CFG_PATH"; do
 	if [ ! -f "$file" ]; then
 		echo "$file not found!"
 		exit 1
 	fi
 done
 
+echo "VERSION: $VERSION"
+echo "VARIANT: $VARIANT"
+echo "ATF dir: $ATF_DIR"
+echo "ATF cfg: $ATF_CFG_PATH"
+echo "U-Boot dir: $UBOOT_DIR"
+echo "U-Boot cfg: $UBOOT_CFG_PATH"
 echo "Building for: ${SOC}_${BOARD}, fixed-mtdparts: $fixedparts, multi-layout: $multilayout"
-echo "u-boot dir: $UBOOT_DIR"
-echo "atf dir: $ATF_DIR"
+echo "======================================================================"
 
 echo "Build u-boot..."
 rm -f "$UBOOT_DIR/u-boot.bin"
-cp -f "$UBOOT_DIR/configs/$UBOOT_CFG" "$UBOOT_DIR/.config"
+cp -f "$UBOOT_CFG_PATH" "$UBOOT_DIR/.config"
 if [ "$fixedparts" = "1" ]; then
 	echo "Build u-boot with fixed-mtdparts!"
 	echo "CONFIG_MEDIATEK_UBI_FIXED_MTDPARTS=y" >> "$UBOOT_DIR/.config"
 	echo "CONFIG_MTK_FIXED_MTD_MTDPARTS=y" >> "$UBOOT_DIR/.config"
+fi
+if [ -n "$VARIANT" ]; then
+	# echo "CONFIG_WEBUI_FAILSAFE_BUILD_VARIANT=\"${VARIANT}\"" >> "$UBOOT_DIR/.config"
+	echo "CONFIG_WEBUI_FAILSAFE_BUILD_VARIANT=\"$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')\"" >> "$UBOOT_DIR/.config"
 fi
 make -C "$UBOOT_DIR" olddefconfig
 make -C "$UBOOT_DIR" clean
@@ -114,11 +248,13 @@ make -C "$ATF_DIR" -f "$ATF_MKFILE" all CONFIG_CROSS_COMPILER="$TOOLCHAIN" CROSS
 
 mkdir -p "output"
 if [ -f "$ATF_DIR/build/${SOC}/release/fip.bin" ]; then
-		FIP_NAME="${SOC}_${BOARD}_${VERSION}-fip"
-		# Append '-dhcpd' for different VERSION
-		if [ "$VERSION" = "2022" ] || [ "$VERSION" = "2023" ] || [ "$VERSION" = "2024" ] || [ "$VERSION" = "2025" ]; then
-			FIP_NAME="${FIP_NAME}-dhcpd-Yuzhii"
-		fi
+	FIP_NAME="${SOC}_${BOARD}_${VERSION}-${AUTHOR}-dhcpd-fip"
+	if [ "$VARIANT" = "ubootmod" ] || [ "$VARIANT" = "UBOOTMOD" ]; then
+		FIP_NAME="${FIP_NAME}-fit"
+	fi
+	if [ "$VARIANT" = "nonmbm" ] || [ "$VARIANT" = "NONMBM" ]; then
+		FIP_NAME="${FIP_NAME}-nonmbm"
+	fi
 	if [ "$fixedparts" = "1" ]; then
 		FIP_NAME="${FIP_NAME}-fixed-parts"
 	fi
@@ -131,7 +267,7 @@ else
 	echo "fip build fail!"
 	exit 1
 fi
-if grep -Eq "(^_|CONFIG_TARGET_ALL_NO_SEC_BOOT=y)" "$ATF_DIR/configs/$ATF_CFG"; then
+if grep -Eq "(^_|CONFIG_TARGET_ALL_NO_SEC_BOOT=y)" "$ATF_CFG_PATH"; then
 	if [ -f "$ATF_DIR/build/${SOC}/release/bl2.img" ]; then
 		BL2_NAME="${SOC}_${BOARD}_${VERSION}-bl2"
 		cp -f "$ATF_DIR/build/${SOC}/release/bl2.img" "output/${BL2_NAME}.bin"
