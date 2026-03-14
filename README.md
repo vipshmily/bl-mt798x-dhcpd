@@ -1,331 +1,10 @@
 # ATF and u-boot for mt798x with DHCPD
 
-A modified version of hanwckf's U-Boot for MT798x by Yuzhii, with support for DHCPD and a beautiful web UI. (Builds available for versions 2022/2023/2024/2025)
-
-Supports GitHub Actions for automatic builds, and can generate both normal and overclocked BL2.
+A modified version of hanwckf's U-Boot for MT798x by Yuzhii, with support for DHCPD and a beautiful web UI. (Builds available for versions 2022/2023/2024)
 
 **Warnign: Flashing custom bootloaders can brick your device. Proceed with caution and at your own risk.**
 
 ## About bl-mt798x
-
-U-Boot 2025 adds more features:
-
-- System info display
-- Factory (RF) update
-- Backup download
-- Flash editor
-- Web terminal
-- Environment manager
-- Device reboot
-
-![Version-2025](document/pictures/uboot-2025.png)
-
-You can configure the features you need.
-
-- [x] MTK_DHCPD
-  - [x] MTK_DHCPD_ENHANCED
-  - [x] MTK_DHCPD_USE_CONFIG_IP
-  - MTK_DHCPD_POOL_START_HOST default 100
-  - MTK_DHCPD_POOL_SIZE default 101
-- Failsafe Web UI style:
-  - [x] WEBUI_FAILSAFE_UI_NEW
-    - [x] WEBUI_FAILSAFE_I18N
-  - [ ] WEBUI_FAILSAFE_UI_GL
-  - [ ] WEBUI_FAILSAFE_UI_MTK
-- [x] WEBUI_FAILSAFE_ADVANCED - Enable advanced features
-  - [ ] WEBUI_FAILSAFE_SIMG - Enable Single Image upgrade
-  - [x] WEBUI_FAILSAFE_FACTORY - Enable factory (RF) update
-  - [x] WEBUI_FAILSAFE_BACKUP - Enable backup download
-  - [x] WEBUI_FAILSAFE_ENV - Enable environment manager
-  - [x] WEBUI_FAILSAFE_CONSOLE - Enable web terminal
-  - [x] WEBUI_FAILSAFE_FLASH - Enable flash editor
-
-> Enable WEBUI_FAILSAFE_UI_OLD will use the traditional webui interface.
-
-## Prepare
-
-```bash
-sudo apt install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev device-tree-compiler qemu-user-static
-```
-
-## Build
-
-example:
-
-```bash
-chmod +x build.sh
-# mt7981, emmc device
-BOARD=sn_r1 VERSION=2025 ./build.sh
-# mt7981, spi-nand device, multi-layout device
-BOARD=cmcc_a10 VERSION=2025 MULTI_LAYOUT=1 ./build.sh
-# mt7986, spi-nand device, multi-layout device, single image upgrade support
-BOARD=ruijie_rg-x60-new MULTI_LAYOUT=1 SIMG=1 ./build.sh
-```
-
-- Version (default: 2025. Optional, for different versions of ATF and U-Boot)
-
-| Version | ATF | UBOOT |
-| --- | --- | --- |
-| 2022 | 20220606-637ba581b | 20220606 |
-| 2023 | 20231013-0ea67d76a | 20230718-09eda825 |
-| 2024 | 20240117-bacca82a8 | 20230718-09eda825 |
-| 2025 | 20250711 | 20250711 |
-| SP1 | 20241017-bacca82a8 | 20250711 |
-
-> SP1 is a special version based on u-boot 2025.07. For some mt7986 devices, still use the kernel 5.4 firmware, may cause some issues on version 2025, like hwrng worong, in this case, you can try SP1.
-
-- VARIANT (default: default. Optional, for different firmware variants)
-
-| Variant | Description | Adapted Firmware |
-| --- | --- | --- |
-| default | Recommand for devices with stock/custom partition layout, enable MTK-NMBM, suitable for most users | stock/custom layout firmware |
-| nonmbm | Recommand for devices with stock/custom partition layout, with MTK-NMBM disabled | stock/custom layout firmware without MTK-NMBM |
-| ubootmod | With some modifications for better compatibility with OpenWrt/ImmortalWrt firmware | ubi/ubootmod layout firmware |
-| openwrt | From OpenWrt official respository, it has no failsafe web UI temporarily | OpenWrt official firmware |
-
-> **VARIANT is only work for VERSION 2025/SP1, for other versions, it will be ignored and use default variant.**
-
-- SOC
-  type: string,
-  required: false,
-  default: null
-  > Auto detected, you can set SOC=mt7981, SOC=mt7986 or other mt798x platforms
-- MULTI_LAYOUT
-  type: boolean,
-  required: false,
-  default: false
-  > You can set MULTI_LAYOUT=1 to enable multi-layout support
-- FIXED_MTDPARTS
-  type: boolean,
-  required: false,
-  default: true
-   > You can set FIXED_MTDPARTS=0 to make mtdparts editable, but it may cause some issues if you don't know what you are doing, so it's default to 1 to use fixed mtdparts.
-- FSTHEME
-  type: string,
-  required: false,
-  default: new
-   > You can set FSTHEME=new/gl/mtk to change the failsafe web UI theme,
-- SIMG
-  type: boolean,
-  required: false,
-  default: 0
-   > SIMG=1 means enable single image upgrade support in the failsafe web UI, but it may cause some issues if you don't know what you are doing, so it's default to 0 to disable it.
-- CLEAN
-  type: boolean,
-  required: false,
-  default: false
-   > You can set CLEAN=1 to clean the build environment before build
-
-> CAN'T ENABLE MULTI_LAYOUT=1 and FIXED_MTDPARTS=0 at the same time
-
-Generated files will be in the `output`
-
-## Use Actions to build
-
-- [x] Build FIP
-  - [x] single-board/all/all-mt798x
-  - [x] Version 2022/2023/2024/2025/2026/SP1/all
-  - [ ] VARIANT
-  - [ ] Extra Options
-  > VERSION:all only for single-board
-- [x] Build GPT
-  - [x] Official layout
-  - [ ] Custom layout
-- [x] Build BL2
-  - [x] RAMBOOT
-  - [ ] OC profiles
-
-## Generate GPT with python2.7
-
-> install denpendencies
-
-```bash
-sudo apt-get install python2 python2-dev
-```
-
-> run
-
-```bash
-chmod +x generate_gpt.sh
-./generate_gpt.sh
-```
-
-Generated files will be in the `output_gpt`
-
-> You need to add your device's partition info JSON file in the "mt798x_gpt" directory, e.g. "atf-dir/tools/dev/gpt_editor/example/gpt.json".
-
-When you enable `SDMMC=1` (e.g. `SDMMC=1 ./generate_gpt.sh`), the generated GPT image will support MTK SDMMC.
-
-### Show GPT info
-
-Create a directory named `mt798x_gpt_bin` in the respository root directory, and put your GPT bin files in it.
-
-Then run:
-
-```bash
-SHOW=1 ./generate_gpt.sh
-```
-
-Then it will display the GPT partition info of all GPT bin files in `mt798x_gpt_bin` directory, and output the results to `gpt_info.txt` in the `output_gpt` directory.
-
-### Draw GPT layout
-
-Install `Pillow` library:
-
-```bash
-pip3 install Pillow
-```
-
-Then run:
-
-```bash
-DRAW=1 ./generate_gpt.sh
-```
-
-## Compile ATF
-
-```bash
-chmod +x compile_atf.sh
-./compile_atf.sh
-```
-
-then will generate BL2 in the `output` directory. Normally, it will generate ramboot BL2.
-
-### Overclocking profiles
-
-- For mt7981, now support OC to 1.4GHz~1.8GHz, and the OC profiles are in the `mt798x_atf/mt7981` directory.
-
-  e.g. to build the 1.6GHz OC BL2 you need configure:
-
-  ```makefile
-  MT7981_ARMPLL_FREQ_1600=y
-  ```
-
-- For mt7986, now support OC to 2.5GHz, or underclock to 1.6GHz, and the OC profiles are in the `mt798x_atf/mt7986` directory.
-
-  e.g. to build the 2.3GHz OC BL2 you need configure:
-
-  ```makefile
-  MT7986_ARMPLL_FREQ_2300=y
-  ```
-
-> Limit each adjustment to 100MHz
-
-### Other Options
-
-these options are only work for `normal` directory
-
-- VARIANT
-  type: string,
-  required: false,
-  default: null
-  > You can set VARIANT=NONMBM/UBOOTMOD to build different BL2 variants
-- OC7981
-  type: int,
-  required: false,
-  default: null
-  > You can set OC7981=13-18 to build BL2 with different OC profiles for mt7981, FREQ=OC7981*100MHz, e.g. OC7981=16 means 1.6GHz
-- OC7986
-  type: int,
-  required: false,
-  default: null
-  > You can set OC7986=16-25 to build BL2 with different OC profiles for mt7986, FREQ=OC7986*100MHz, e.g. OC7986=23 means 2.3GHz
-
----
-
-## FIT support
-
-**You MUST test it yourself, and there is a risk of BRICKING your device!**
-
-There are two ways to build:
-
-- Local Build
-
-  ```bash
-  BOARD=your_board VERSION=2025 VARIANT=ubootmod ./build.sh
-  ```
-
-- Use Action to build
-
-HOW to flash:
-
-1. Use failsafe WEB UI to backup[1*](#ENDNOTE) **all your flash and partitions**, is very **important**!
-
-2. Update BL2 in the WEB UI to flash the preloader provided by OpenWrt/ImmortalWrt ubootmod firmware.
-
-3. Update U-Boot in the WEB UI to flash the **FIT version FIP**.
-
-4. Use Flash Editor in the WEB UI to erase the UBI partition(or use command line: `mtd erase ubi`).
-
-5. Try upgrade in firmware upgrade page with the OpenWrt/ImmortalWrt ubootmod firmware[2*](#ENDNOTE) [3*](#ENDNOTE), if not work, try next step.
-
-6. Use failsafe WEB UI Initramfs to boot the OpenWrt/ImmortalWrt ubootmod Initramfs image.
-
-7. If the device can boot into OpenWrt/ImmortalWrt successfully, then you can try upgrade in firmware upgrade page with the OpenWrt/ImmortalWrt ubootmod firmware again.
-
----
-
-## The best practices
-
-1. Use TTL tools to connect to the serial port, and use [MTK UARTBOOT](https://github.com/981213/mtk_uartboot/releases) to ramboot
-
-2. In Web UI, backup all your flash and partitions[1*](#ENDNOTE), is very important!
-
-3. Update U-Boot in the WEB UI and upgrade firmware
-
-4. restore backup if something goes wrong
-
-### Change failsafe WEB UI start key
-
-The following priorities are now supported:
-
-- `glbtn_gpio=<gpio>`
-  → Directly read the GPIO.
-- `glbtn_key=<label>`
-  → Still search by label.
-
-e.g.
-
-- Specify only GPIO:
-  `setenv glbtn_gpio 0`
-- With the `gpio:` prefix:
-  `setenv glbtn_gpio gpio:0`
-  > 0, gpio 0, pio 0, gpio:0, pio0.
-- Flip the signal:
-  `setenv glbtn_gpio !0`
-  > !gpio 0, !pio 0, !gpio:0, !pio0.
-- Scan gpio-keys:
-  `setenv glbtn_key wps`
-  > wps, reset, mesh...
-
-### Disable auto-reboot after upgrade
-
-Set failsafe_auto_reboot environment variable to 1/true/yes/on to enable auto reboot after upgrade(New WEB UI).
-
-### Some commands in firmware
-
-```bash
-fw_setenv env_invalid 1 # Reset environment to default values in next boot
-fw_setenv failsafe 1 # Reboot to failsafe mode in next boot
-```
-
-> need install `uboot-envtools` and configure `package/boot/uboot-envtools/files/mediatek_filogic` correctly for your device before compile firmware, otherwise the environment variables will not work.
-
----
-
-<a id="ENDNOTE"></a>
-
-## Endnote
-
-1*: If your device is a MMC device, back up all flash is not feasible. It depends on the size of the firmware, which is usually 200MB to 300MB.
-
-2*: If your device is a MMC device, you need upgrade GPT table which has production partition
-
-3*: The OpenWrt/ImmortalWrt ubootmod firmware is a special firmware with FIT support, in this firmware, devicetree is loaded from the FIT image(bootargs = "root=/dev/fit0 rootwait"), and loaded from ubi_rootdisk. You'd better use a version after OpenWrt/ImmortalWrt 24.10.
-
----
-
-## Other Version Previews
 
 - <https://cmi.hanwckf.top/p/mt798x-uboot-usage>
 
@@ -339,6 +18,31 @@ Now U-Boot 2022 and 2023 is **not maintained**(include Version2022/2023/2024), p
 
 ![Version-2023/2024](document/pictures/uboot-2023.png)
 
+## Prepare
+
+```bash
+sudo apt install gcc-aarch64-linux-gnu build-essential flex bison libssl-dev device-tree-compiler qemu-user-static
+```
+
+## Build
+
+```bash
+Usage: SOC=[mt7981|mt7986] BOARD=<board name> MULTI_LAYOUT=[0|1] ./build.sh
+eg: SOC=mt7981 BOARD=360t7 ./build.sh
+eg: SOC=mt7981 BOARD=wr30u MULTI_LAYOUT=1 ./build.sh
+eg: SOC=mt7981 BOARD=cmcc_rax3000m-emmc ./build.sh
+eg: SOC=mt7986 BOARD=redmi_ax6000 MULTI_LAYOUT=1 ./build.sh
+eg: SOC=mt7986 BOARD=jdcloud_re-cp-03 ./build.sh
+```
+
+- Version (default: 2025. Optional, for different versions of ATF and U-Boot)
+
+| Version | ATF | UBOOT |
+| --- | --- | --- |
+| 2022 | 20220606-637ba581b | 20220606 |
+| 2023 | 20231013-0ea67d76a | 20230718-09eda825 |
+| 2024 | 20240117-bacca82a8 | 20230718-09eda825 |
+
 ---
 
 ## Acknowledgement
@@ -347,3 +51,41 @@ Now U-Boot 2022 and 2023 is **not maintained**(include Version2022/2023/2024), p
 - [mtk-openwrt](https://github.com/mtk-openwrt)
 - [u-boot](https://github.com/u-boot/u-boot)
 - [Tianling](https://blog.imouto.in/)
+
+---
+
+### xiaomi-wr30u multi-layout uboot firmware compatibility
+
+|Firmware type|uboot (default)|uboot (immortalwrt-112m)|uboot (qwrt)|
+|:----:|:----:|:----:|:----:|
+|[xiaomi stock mtd8/mtd9](https://github.com/hanwckf/xiaomi-router-stock-ubi-bin/tree/main/xiaomi-wr30u)|√|×|×|
+|[immortalwrt-mt798x stock](https://github.com/hanwckf/immortalwrt-mt798x/blob/openwrt-21.02/target/linux/mediatek/files-5.4/arch/arm64/boot/dts/mediatek/mt7981-xiaomi-mi-router-wr30u-stock.dts)|√|×|×|
+|[OpenWrt stock](https://github.com/openwrt/openwrt/blob/main/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-stock.dts)|√|×|×|
+|[immortalwrt stock](https://github.com/immortalwrt/immortalwrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-stock.dts)|√|×|×|
+|[X-Wrt stock](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-stock.dts)|√|×|×|
+|[immortalwrt-mt798x 112m](https://github.com/hanwckf/immortalwrt-mt798x/blob/openwrt-21.02/target/linux/mediatek/files-5.4/arch/arm64/boot/dts/mediatek/mt7981-xiaomi-mi-router-wr30u-112m.dts)|×|√|×|
+|[GL.iNet by 237176253](https://www.right.com.cn/forum/thread-8297881-1-1.html)|×|√|×|
+|[X-Wrt 112m nmbm](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-112m-nmbm.dts)|×|√|×|
+|[OpenWrt 112m nmbm](https://github.com/openwrt/openwrt/blob/main/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-112m-nmbm.dts)|×|√|×|
+|[immortalwrt 112m nmbm](https://github.com/immortalwrt/immortalwrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-112m-nmbm.dts)|×|√|×|
+|[X-Wrt 112m nmbm](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-112m-nmbm.dts)|×|√|×|
+|[QWRT](https://www.right.com.cn/forum/thread-8284824-1-1.html)|×|×|√|
+|[OpenWrt ubootmod](https://github.com/openwrt/openwrt/blob/main/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-ubootmod.dts)|×|×|×|
+|[immortalwrt ubootmod](https://github.com/immortalwrt/immortalwrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-ubootmod.dts)|×|×|×|
+|[X-Wrt ubootmod](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7981b-xiaomi-mi-router-wr30u-ubootmod.dts)|×|×|×|
+
+### redmi-ax6000 multi-layout uboot firmware compatibility
+
+|Firmware type|uboot (default)|uboot (immortalwrt-110m)|
+|:----:|:----:|:----:|
+|[xiaomi stock mtd8/mtd9](https://github.com/hanwckf/xiaomi-router-stock-ubi-bin/tree/main/redmi-ax6000)|√|×|
+|[immortalwrt-mt798x stock](https://github.com/hanwckf/immortalwrt-mt798x/blob/openwrt-21.02/target/linux/mediatek/files-5.4/arch/arm64/boot/dts/mediatek/mt7986a-xiaomi-redmi-router-ax6000-stock.dts)|√|×|
+|[OpenWrt stock](https://github.com/openwrt/openwrt/blob/main/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts)|√|×|
+|[immortalwrt stock](https://github.com/immortalwrt/immortalwrt/blob/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts)|√|×|
+|[X-Wrt stock](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts)|√|×|
+|[immortalwrt-mt798x](https://github.com/hanwckf/immortalwrt-mt798x/blob/openwrt-21.02/target/linux/mediatek/files-5.4/arch/arm64/boot/dts/mediatek/mt7986a-xiaomi-redmi-router-ax6000.dts)|×|√|
+|[GL.iNet by 237176253](https://www.right.com.cn/forum/thread-8297881-1-1.html)|×|√|
+|[X-Wrt ubootlayout](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootlayout.dts)|×|√|
+|[OpenWrt ubootmod](https://github.com/openwrt/openwrt/blob/main/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts)|×|×|
+|[immortalwrt ubootmod](https://github.com/immortalwrt/immortalwrt/blob/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts)|×|×|
+|[X-Wrt ubootmod](https://github.com/x-wrt/x-wrt/blob/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts)|×|×|
