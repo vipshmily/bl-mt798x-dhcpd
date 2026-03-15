@@ -95,3 +95,33 @@ Other options:
 > CAN'T ENABLE MULTI_LAYOUT=1 and FIXED_MTDPARTS=0 at the same time
 
 Generated files will be in the `output`
+
+---
+
+## Airoha
+
+It is in beta, please report any issues you encounter.
+
+**Warnign: Flashing custom bootloaders can brick your device. Proceed with caution and at your own risk.**
+
+### Step
+
+```bash
+sudo apt install gcc-arm-linux-gnueabi # if you need to build for en7523 devices
+```
+
+```bash
+cd atf/tools/fiptool
+sudo make all
+```
+
+```bash
+chmod +x airoha.sh
+./airoha.sh
+```
+
+You can specify the SOC and the BOARD, for example:
+
+```bash
+SOC=an7581 BOARD=evb ./airoha.sh
+```

@@ -1,10 +1,12 @@
 #!/bin/sh
 
 # You may need install arm-trusted-firmware-tools for fiptool
+# If you want to compile for en7523, you need install gcc-arm-linux-gnueabi toolchain
 
 # Auto-selected by SOC below unless TOOLCHAIN is explicitly provided
 TOOLCHAIN=${TOOLCHAIN:-}
 LZMA_COMPRESS=${LZMA_COMPRESS:-0}
+VERSION=${VERSION:-2026}
 LOCAL_FIPTOOL=/tools/fiptool/fiptool
 
 die()
@@ -40,8 +42,6 @@ lzma_compress()
 	return 1
 }
 
-VERSION=${VERSION:-2026}
-
 if [ "$VERSION" = "2026" ]; then
     UBOOT_DIR=uboot-mtk-20260123
 else
@@ -50,58 +50,28 @@ fi
 
 if [ -z "$SOC" ] || [ -z "$BOARD" ]; then
 	echo "Usage: SOC=<en7523|an7581|an7583> BOARD=<evb|w1700k> VERSION=2026 $0"
-	echo "eg: SOC=en7523 BOARD=evb VERSION=2026 $0"
-	echo "eg: SOC=an7581 BOARD=w1700k VERSION=2026 $0"
+	echo "eg: SOC=en7523 BOARD=evb $0"
+	echo "eg: SOC=an7581 BOARD=evb VERSION=2026 $0"
 	exit 1
 fi
 
-# Normalize board aliases
-case "$BOARD" in
-	evb)
-		BOARD_ALIAS="evb"
-		;;
-	w1700k|gemtek_w1700k)
-		BOARD_ALIAS="w1700k"
-		;;
-	*)
-		die "Unsupported BOARD '$BOARD'. Supported: evb, w1700k"
-		;;
-esac
-
 # Airoha platform target mapping (aligned with OpenWrt Makefile behavior)
-case "${SOC}_${BOARD_ALIAS}" in
-	en7523_evb)
-		UBOOT_CFG="en7523_evb_defconfig"
-		UBOOT_IMAGE="u-boot.fip"
-		BL2_IMAGE="en7523-bl2.bin"
-		BL31_IMAGE="en7523-bl31.bin"
-		BL_SOC_DIR="en7523"
-		OUTPUT_PREFIX="en7523-u-boot-evb-${VERSION}"
-		;;
-	an7581_evb)
-		UBOOT_CFG="an7581_evb_defconfig"
-		UBOOT_IMAGE="u-boot.fip"
-		BL2_IMAGE="an7581-bl2.bin"
-		BL31_IMAGE="an7581-bl31.bin"
-		BL_SOC_DIR="an7581"
-		OUTPUT_PREFIX="an7581-u-boot-evb-${VERSION}"
-		;;
+case "${SOC}_${BOARD}" in
+	en7523_evb |\
+	an7581_evb |\
 	an7583_evb)
-		UBOOT_CFG="an7583_evb_defconfig"
+		UBOOT_CFG="${SOC}_${BOARD}_defconfig"
 		UBOOT_IMAGE="u-boot.fip"
-		BL2_IMAGE="an7583-bl2.bin"
-		BL31_IMAGE="an7583-bl31.bin"
-		BL_SOC_DIR="an7583"
-		OUTPUT_PREFIX="an7583-u-boot-evb-${VERSION}"
-		;;
-	an7581_w1700k)
-		UBOOT_CFG="an7581_w1700k_defconfig"
-		UBOOT_IMAGE="u-boot.bin"
-		BL_SOC_DIR="an7581"
-		OUTPUT_PREFIX="an7581-u-boot-w1700k-${VERSION}"
+		BL2_IMAGE="${SOC}-bl2.bin"
+		BL31_IMAGE="${SOC}-bl31.bin"
+		BL_SOC_DIR="${SOC}"
+		OUTPUT_PREFIX="${SOC}-u-boot-${BOARD}-${VERSION}"
 		;;
 	*)
-		die "Unsupported target ${SOC}_${BOARD_ALIAS}"
+		UBOOT_CFG="${SOC}_${BOARD}_defconfig"
+		UBOOT_IMAGE="u-boot.bin"
+		BL_SOC_DIR="${SOC}"
+		OUTPUT_PREFIX="${SOC}-u-boot-${BOARD}-${VERSION}"
 		;;
 esac
 
@@ -120,6 +90,10 @@ if [ -z "$TOOLCHAIN" ]; then
 			;;
 	esac
 fi
+
+echo "======================================================================"
+echo "Checking environment..."
+echo "======================================================================"
 
 echo "Selected toolchain: ${TOOLCHAIN}"
 
@@ -153,7 +127,21 @@ if [ "$UBOOT_IMAGE" = "u-boot.fip" ]; then
 	echo "fiptool found, help: $($FIPTOOL_BIN --help | head -n1)"
 fi
 
-echo "u-boot dir: $UBOOT_DIR"
+echo "======================================================================"
+echo "Configuration:"
+echo "======================================================================"
+
+echo "VERSION: $VERSION"
+echo "SOC: $SOC"
+echo "BOARD: $BOARD"
+echo "U-Boot Dir: $UBOOT_DIR"
+echo "U-Boot Config: $UBOOT_CFG"
+echo "U-Boot Image: $UBOOT_IMAGE"
+echo "BL2 Image: $BL2_IMAGE"
+echo "BL31 Image: $BL31_IMAGE"
+echo "Toolchain Prefix: $TOOLCHAIN"
+echo "LZMA Compress: $LZMA_COMPRESS"
+echo "Output Prefix: $OUTPUT_PREFIX"
 
 if [ ! -d "$UBOOT_DIR" ]; then
 	die "U-Boot directory '$UBOOT_DIR' not found!"
@@ -175,6 +163,10 @@ if command -v nproc >/dev/null 2>&1; then
 else
 	JOBS=1
 fi
+
+echo "======================================================================"
+echo "Build u-boot..."
+echo "======================================================================"
 
 echo "Build u-boot..."
 rm -f "$UBOOT_DIR/u-boot.bin" "$UBOOT_DIR/u-boot.bin.lzma" "$UBOOT_DIR/u-boot.fip" "$UBOOT_DIR/bl2.fip" "$UBOOT_DIR/bl31.bin.lzma"
@@ -218,31 +210,50 @@ if [ "$UBOOT_IMAGE" = "u-boot.fip" ]; then
 		"$UBOOT_DIR/u-boot.fip" || die "create u-boot.fip failed"
 fi
 
+echo "======================================================================"
+echo "Copying output files..."
+echo "======================================================================"
+
 mkdir -p "output_airoha"
 
 if [ "$UBOOT_IMAGE" = "u-boot.fip" ]; then
 	[ -f "$UBOOT_DIR/bl2.fip" ] || die "bl2.fip not generated"
 	[ -f "$UBOOT_DIR/u-boot.fip" ] || die "u-boot.fip not generated"
-	cp -f "$UBOOT_DIR/bl2.fip" "output_airoha/${OUTPUT_PREFIX}-bl2.fip"
-	cp -f "$UBOOT_DIR/u-boot.fip" "output_airoha/${OUTPUT_PREFIX}-bl31-u-boot.fip"
+	MD5_BL2=$(md5sum "$UBOOT_DIR/bl2.fip" | awk '{print $1}')
+	MD5_BL31=$(md5sum "$UBOOT_DIR/u-boot.fip" | awk '{print $1}')
+	echo "BL2 fip ${SOC} ${BOARD} ${VERSION} build done!" 
+	echo "BL2 fip md5: $MD5_BL2"
+	echo "BL31+u-boot fip ${SOC} ${BOARD} ${VERSION} build done!"
+	echo "BL31+u-boot fip md5: $MD5_BL31"
+	cp -f "$UBOOT_DIR/bl2.fip" "output_airoha/${OUTPUT_PREFIX}_md5-${MD5_BL2}-bl2.fip"
+	cp -f "$UBOOT_DIR/u-boot.fip" "output_airoha/${OUTPUT_PREFIX}_md5-${MD5_BL31}-bl31-u-boot.fip"
 	echo "${OUTPUT_PREFIX} build done"
-	echo "Output: output_airoha/${OUTPUT_PREFIX}-bl2.fip"
-	echo "Output: output_airoha/${OUTPUT_PREFIX}-bl31-u-boot.fip"
+	echo "Output: output_airoha/${OUTPUT_PREFIX}_md5-${MD5_BL2}-bl2.fip"
+	echo "Output: output_airoha/${OUTPUT_PREFIX}_md5-${MD5_BL31}-bl31-u-boot.fip"
 else
 	if [ "$LZMA_COMPRESS" = "1" ]; then
 		[ -f "$UBOOT_DIR/u-boot.bin.lzma" ] || die "u-boot.bin.lzma not generated"
-		cp -f "$UBOOT_DIR/u-boot.bin.lzma" "output_airoha/${OUTPUT_PREFIX}.bin.lzma"
+		MD5_UBOOT=$(md5sum "$UBOOT_DIR/u-boot.bin.lzma" | awk '{print $1}')
+		echo "u-boot ${SOC} ${BOARD} ${VERSION} build done!"
+		echo "u-boot md5: $MD5_UBOOT"
+		cp -f "$UBOOT_DIR/u-boot.bin.lzma" "output_airoha/${OUTPUT_PREFIX}_md5-${MD5_UBOOT}.bin.lzma"
 		echo "${OUTPUT_PREFIX} build done"
-		echo "Output: output_airoha/${OUTPUT_PREFIX}.bin.lzma"
+		echo "Output: output_airoha/${OUTPUT_PREFIX}_md5-${MD5_UBOOT}.bin.lzma"
 	else
 		[ -f "$UBOOT_DIR/u-boot.bin" ] || die "u-boot.bin not generated"
-		cp -f "$UBOOT_DIR/u-boot.bin" "output_airoha/${OUTPUT_PREFIX}.bin"
+		echo "u-boot ${SOC} ${BOARD} ${VERSION} build done!"
+		MD5_UBOOT=$(md5sum "$UBOOT_DIR/u-boot.bin" | awk '{print $1}')
+		echo "u-boot md5: $MD5_UBOOT"
+		cp -f "$UBOOT_DIR/u-boot.bin" "output_airoha/${OUTPUT_PREFIX}_md5-${MD5_UBOOT}.bin"
 		echo "${OUTPUT_PREFIX} build done"
-		echo "Output: output_airoha/${OUTPUT_PREFIX}.bin"
+		echo "Output: output_airoha/${OUTPUT_PREFIX}_md5-${MD5_UBOOT}.bin"
 	fi
 
 	if [ -f "$UBOOT_DIR/u-boot.dtb" ]; then
-		cp -f "$UBOOT_DIR/u-boot.dtb" "output_airoha/${OUTPUT_PREFIX}.dtb"
-		echo "Output: output_airoha/${OUTPUT_PREFIX}.dtb"
+		echo "u-boot dtb found, copying to output"
+		MD5_DTB=$(md5sum "$UBOOT_DIR/u-boot.dtb" | awk '{print $1}')
+		echo "u-boot dtb md5: $MD5_DTB"
+		cp -f "$UBOOT_DIR/u-boot.dtb" "output_airoha/${OUTPUT_PREFIX}_md5-${MD5_DTB}.dtb"
+		echo "Output: output_airoha/${OUTPUT_PREFIX}_md5-${MD5_DTB}.dtb"
 	fi
 fi

@@ -31,13 +31,10 @@ u-boot.cfg
 /mkgpt/bin
 /mkgpt/gpttable
 __pycache__
-output/*
-output_gpt/*
-output_simg/*
-output_ramboot/*
+output*/
 mt798x_gpt_bin/*
 mt798x_simg/*
-unopen/*
-migration_configs/*
-migration_dts/*
+unopen*/
+migration_*/
 migration*.py
+*.fip
