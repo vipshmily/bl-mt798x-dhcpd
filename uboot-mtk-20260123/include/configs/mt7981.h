@@ -9,6 +9,16 @@
 #ifndef __MT7981_H
 #define __MT7981_H
 
+#include <linux/sizes.h>
+
+#define CONFIG_SYS_MMC_ENV_DEV		0
+
+/* Uboot definition */
+#define CONFIG_SYS_UBOOT_BASE		CONFIG_SYS_TEXT_BASE
+
+/* DRAM */
+#define CONFIG_SYS_SDRAM_BASE		0x40000000
+
 /* Extra environment variables */
 #ifdef CONFIG_MTK_DEFAULT_FIT_BOOT_CONF
 #define FIT_BOOT_CONF_ENV	"bootconf=" CONFIG_MTK_DEFAULT_FIT_BOOT_CONF "\0"

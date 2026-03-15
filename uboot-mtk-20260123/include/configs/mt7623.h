@@ -12,7 +12,7 @@
 #include <linux/sizes.h>
 
 /* DRAM */
-#define CFG_SYS_SDRAM_BASE		0x80000000
+#define CONFIG_SYS_SDRAM_BASE		0x80000000
 
 /* This is needed for kernel booting */
 #define FDT_HIGH			"0xac000000"
@@ -31,7 +31,7 @@
 #include <config_distro_bootcmd.h>
 
 /* Extra environment variables */
-#define CFG_EXTRA_ENV_SETTINGS	\
+#define CONFIG_EXTRA_ENV_SETTINGS	\
 	ENV_MEM_LAYOUT_SETTINGS		\
 	BOOTENV
 

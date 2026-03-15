@@ -9,4 +9,12 @@
 #ifndef __MT7622_H
 #define __MT7622_H
 
+#include <linux/sizes.h>
+
+/* Uboot definition */
+#define CONFIG_SYS_UBOOT_BASE                   CONFIG_SYS_TEXT_BASE
+
+/* DRAM */
+#define CONFIG_SYS_SDRAM_BASE		0x40000000
+
 #endif
