@@ -11,6 +11,13 @@
 #include <linux/sizes.h>
 #include <linux/types.h>
 #include "../common/unxz.h"
+#include <config.h>
+#include <dm.h>
+#include <button.h>
+#include <env.h>
+#include <init.h>
+#include <asm/global_data.h>
+#include <linux/delay.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -18,6 +25,33 @@ DECLARE_GLOBAL_DATA_PTR;
 #define	MT7988_BOOT_SPIM_NAND	1
 #define	MT7988_BOOT_EMMC	2
 #define	MT7988_BOOT_SNFI_NAND	3
+
+#ifndef CONFIG_RESET_BUTTON_LABEL
+#define CONFIG_RESET_BUTTON_LABEL "reset"
+#endif
+
+int board_late_init(void)
+{
+	gd->env_valid = 1; //to load environment variable from persistent store
+	struct udevice *dev;
+
+	gd->env_valid = ENV_VALID;
+	if (!button_get_by_label(CONFIG_RESET_BUTTON_LABEL, &dev)) {
+		puts("reset button found\n");
+#ifdef CONFIG_RESET_BUTTON_SETTLE_DELAY
+		if (CONFIG_RESET_BUTTON_SETTLE_DELAY > 0) {
+			button_get_state(dev);
+			mdelay(CONFIG_RESET_BUTTON_SETTLE_DELAY);
+		}
+#endif
+		if (button_get_state(dev) == BUTTON_ON) {
+			puts("button pushed, resetting environment\n");
+			gd->env_valid = ENV_INVALID;
+		}
+	}
+	env_relocate();
+	return 0;
+}
 
 const char *mtk_board_rootdisk(void)
 {
