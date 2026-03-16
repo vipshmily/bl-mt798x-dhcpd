@@ -14,13 +14,9 @@ Now U-Boot 2022 and 2023 is **not maintained**(include Version2022/2023/2024), p
 
 ![bl-mt798x](document/pictures/u-boot.gif)
 
-> New1 theme
+> New theme
 
-![New1-theme](document/pictures/uboot-2022.png)
-
-> New2 theme
-
-![New2-theme](document/pictures/uboot-2023.png)
+![New-theme](document/pictures/new-theme.png)
 
 ## Prepare
 
@@ -47,7 +43,7 @@ eg: SOC=mt7986 BOARD=jdcloud_re-cp-03 ./build.sh
 | 2023 | 20231013-0ea67d76a | 20230718-09eda825 |
 | 2024 | 20240117-bacca82a8 | 20230718-09eda825 |
 
-- FSTHEME (default: new1. Optional, for different web UI themes)
+- FSTHEME (default: new3. Optional, for different web UI themes)
 
 | FSTHEME | Description |
 | --- | --- |
