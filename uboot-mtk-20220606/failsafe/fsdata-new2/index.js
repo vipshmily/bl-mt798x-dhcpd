@@ -295,16 +295,25 @@ function upload(n) {
         url: "/upload",
         data: r,
         done: function (n) {
-            if ("fail" == n) location = "/fail.html";
-            else {
-                const i = n.split(" ");
-                document.getElementById("size").style.display = "block";
-                document.getElementById("size").innerHTML = t("common.labels.size") + " " + i[0];
-                document.getElementById("md5").style.display = "block";
-                document.getElementById("md5").innerHTML = t("common.labels.md5") + " " + i[1];
-                i[2] && (document.getElementById("mtd").style.display = "block", document.getElementById("mtd").innerHTML = t("common.labels.mtd_layout") + " " + i[2]);
-                document.getElementById("upgrade").style.display = "block"
+            const r = (n || "").trim();
+            if ("fail" === r) {
+                location = "/fail.html";
+                return
             }
+            const i = r.split(/\s+/),
+                u = i[0] || "",
+                f = i[1] || "",
+                e = i[2] || "";
+            if (!/^\d+$/.test(u) || !/^[0-9a-f]{32}$/i.test(f)) {
+                location = "/fail.html";
+                return
+            }
+            document.getElementById("size").style.display = "block";
+            document.getElementById("size").innerHTML = t("common.labels.size") + " " + u;
+            document.getElementById("md5").style.display = "block";
+            document.getElementById("md5").innerHTML = t("common.labels.md5") + " " + f;
+            e && (document.getElementById("mtd").style.display = "block", document.getElementById("mtd").innerHTML = t("common.labels.mtd_layout") + " " + e);
+            document.getElementById("upgrade").style.display = "block"
         },
         progress: function (n) {
             var t = parseInt(n.loaded / n.total * 100);

@@ -205,14 +205,19 @@ function upload(n, i) {
         url: "/upload",
         data: e,
         done: function (n) {
-            if (n === "fail") {
+            var e = (n || "").trim();
+            if (e === "fail") {
                 location = "/fail.html";
                 return
             }
-            var i = (n || "").split(" "),
+            var i = e.split(/\s+/),
                 u = i[0] || "",
                 f = i[1] || "",
                 r = i[2] || "";
+            if (!/^\d+$/.test(u) || !/^[0-9a-f]{32}$/i.test(f)) {
+                location = "/fail.html";
+                return
+            }
             h && (h.style.display = "block", h.textContent = t("label.size") + ": " + u);
             c && (c.style.display = "block", c.textContent = t("label.md5") + ": " + f);
             s && (r ? (s.style.display = "block", s.textContent = t("label.mtd") + ": " + r) : s.style.display = "none");
