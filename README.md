@@ -125,3 +125,16 @@ You can specify the SOC and the BOARD, for example:
 ```bash
 SOC=an7581 BOARD=evb ./airoha.sh
 ```
+
+### About airoha
+
+They all not open source the ATF, so I used the binary BL2 and bl31 from the OEM or OpenWrt.
+
+| platform | soruce | description |
+| --- | --- | --- |
+| en7523 | OEM | Built jan 30 2021 V2.3, V7_3_267_150_verify_20210126_v024-2-g3b3e35d-dirty |
+| an7552 | OEM | Built feb 20 2024 V2.3, 50866bc |
+| an7581 | OpenWrt | Built may 21 2025 v2.10.0, release-openwrt v0~v2.10.0.1 (bl21-an7581) |
+| an7583 | OpenWrt | Built may 21 2025 v2.10.0, release-openwrt v0~v2.10.0.1 (bl21-an7583) |
+
+The drivers for airoha is not complete, so some features may not work!
