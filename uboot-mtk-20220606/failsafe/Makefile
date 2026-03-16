@@ -8,6 +8,8 @@ ifeq ($(CONFIG_WEBUI_FAILSAFE_THEME_NEW1),y)
 FAILSAFE_FSDATA_DIR := fsdata-new1
 else ifeq ($(CONFIG_WEBUI_FAILSAFE_THEME_NEW2),y)
 FAILSAFE_FSDATA_DIR := fsdata-new2
+else ifeq ($(CONFIG_WEBUI_FAILSAFE_THEME_NEW3),y)
+FAILSAFE_FSDATA_DIR := fsdata-new3
 endif
 
 obj-y += fs.o failsafe.o

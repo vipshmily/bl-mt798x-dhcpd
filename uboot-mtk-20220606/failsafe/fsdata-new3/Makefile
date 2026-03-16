@@ -38,8 +38,8 @@ FILE_initramfs.o := initramfs.html
 FSPATH_initramfs.o := initramfs.html
 
 obj-y += main.o
-FILE_main.o := main.js
-FSPATH_main.o := main.js
+FILE_main.o := index.js
+FSPATH_main.o := index.js
 
 obj-y += style.o
 FILE_style.o := style.css

@@ -17,7 +17,7 @@ choice
 	default WEBUI_FAILSAFE_THEME_GL
 	help
 	  Select failsafe web ui theme:
-	  fsdata (GL theme) / fsdata-new1 (new1 theme) / fsdata-new2 (new2 theme)
+	  fsdata (GL theme) / fsdata-new1 (new1 theme) / fsdata-new2 (new2 theme) / fsdata-new3 (new3 theme)
 
 config WEBUI_FAILSAFE_THEME_GL
 	bool "fsdata (GL theme)"
@@ -27,6 +27,9 @@ config WEBUI_FAILSAFE_THEME_NEW1
 
 config WEBUI_FAILSAFE_THEME_NEW2
 	bool "fsdata-new2 (new2 theme)"
+
+config WEBUI_FAILSAFE_THEME_NEW3
+	bool "fsdata-new3 (new3 theme)"
 
 endchoice
 
