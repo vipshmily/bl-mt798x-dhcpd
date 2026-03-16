@@ -2,7 +2,8 @@
 
 open(OUTPUT, "> httpd-fsdata.c");
 
-chdir("fsdata");
+$fsdata_dir = $ENV{'FSDATA_DIR'} || "fsdata";
+chdir($fsdata_dir) or die "Failed to open fsdata dir $fsdata_dir\n";
 
 opendir(DIR, ".");
 @files =  grep { !/^\./ && !/(CVS|~)/ } readdir(DIR);

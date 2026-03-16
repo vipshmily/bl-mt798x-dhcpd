@@ -2,7 +2,15 @@
 
 ifeq ($(CONFIG_SPL_BUILD),)
 
-obj-y += fsdata/
+FAILSAFE_FSDATA_DIR := fsdata
+
+ifeq ($(CONFIG_WEBUI_FAILSAFE_THEME_NEW1),y)
+FAILSAFE_FSDATA_DIR := fsdata-new1
+else ifeq ($(CONFIG_WEBUI_FAILSAFE_THEME_NEW2),y)
+FAILSAFE_FSDATA_DIR := fsdata-new2
+endif
+
+obj-y += $(FAILSAFE_FSDATA_DIR)/
 
 obj-y += fs.o failsafe.o
 
