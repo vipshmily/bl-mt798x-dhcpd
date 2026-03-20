@@ -17,7 +17,11 @@ static const struct data_part_entry mtd_parts[] = {
 		.abbr = "bl2",
 		.env_name = "bootfile.bl2",
 		.validate = generic_validate_bl2,
+#ifdef CONFIG_MTK_UBI_BL2_IN_MTD_PART
+		.write = generic_mtd_write_bl2,
+#else
 		.write = generic_mtd_write_bl2_redund,
+#endif
 	},
 	{
 		.name = "ATF FIP",
